@@ -1,0 +1,47 @@
+[
+  {
+    "language": "python",
+    "package_name": "requests",
+    "package_version": "2.25.1",
+    "package_with_version": "requests>=2.25.1",
+    "file_last_modified": "2025-03-06T02:02:13.033339",
+    "file_path": "pyproject.toml",
+    "dependency_type": "normal"
+  },
+  {
+    "language": "python",
+    "package_name": "fastapi",
+    "package_version": "0.65.0",
+    "package_with_version": "fastapi>=0.65.0",
+    "file_last_modified": "2025-03-06T02:02:13.033339",
+    "file_path": "pyproject.toml",
+    "dependency_type": "normal"
+  },
+  {
+    "language": "python",
+    "package_name": "pytest",
+    "package_version": "6.0.0",
+    "package_with_version": "pytest>=6.0.0",
+    "file_last_modified": "2025-03-06T02:02:13.033339",
+    "file_path": "pyproject.toml",
+    "dependency_type": "dev"
+  },
+  {
+    "language": "python",
+    "package_name": "black",
+    "package_version": "21.5b2",
+    "package_with_version": "black>=21.5b2",
+    "file_last_modified": "2025-03-06T02:02:13.033339",
+    "file_path": "pyproject.toml",
+    "dependency_type": "dev"
+  },
+  {
+    "language": "python",
+    "package_name": "mypy",
+    "package_version": "0.812",
+    "package_with_version": "mypy>=0.812",
+    "file_last_modified": "2025-03-06T02:02:13.033339",
+    "file_path": "pyproject.toml",
+    "dependency_type": "dev"
+  }
+]

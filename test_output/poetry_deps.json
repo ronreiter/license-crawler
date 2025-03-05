@@ -1,0 +1,56 @@
+[
+  {
+    "language": "python",
+    "package_name": "python",
+    "package_version": "^3.8",
+    "package_with_version": "python==^3.8",
+    "file_last_modified": "2025-03-06T02:02:13.033638",
+    "file_path": "pyproject.toml",
+    "dependency_type": "normal"
+  },
+  {
+    "language": "python",
+    "package_name": "fastapi",
+    "package_version": "^0.100.0",
+    "package_with_version": "fastapi==^0.100.0",
+    "file_last_modified": "2025-03-06T02:02:13.033638",
+    "file_path": "pyproject.toml",
+    "dependency_type": "normal"
+  },
+  {
+    "language": "python",
+    "package_name": "sqlalchemy",
+    "package_version": "^2.0.0",
+    "package_with_version": "sqlalchemy==^2.0.0",
+    "file_last_modified": "2025-03-06T02:02:13.033638",
+    "file_path": "pyproject.toml",
+    "dependency_type": "normal"
+  },
+  {
+    "language": "python",
+    "package_name": "pytest",
+    "package_version": "^7.0.0",
+    "package_with_version": "pytest==^7.0.0",
+    "file_last_modified": "2025-03-06T02:02:13.033638",
+    "file_path": "pyproject.toml",
+    "dependency_type": "dev"
+  },
+  {
+    "language": "python",
+    "package_name": "black",
+    "package_version": "^23.0.0",
+    "package_with_version": "black==^23.0.0",
+    "file_last_modified": "2025-03-06T02:02:13.033638",
+    "file_path": "pyproject.toml",
+    "dependency_type": "dev"
+  },
+  {
+    "language": "python",
+    "package_name": "flake8",
+    "package_version": "^6.0.0",
+    "package_with_version": "flake8==^6.0.0",
+    "file_last_modified": "2025-03-06T02:02:13.033638",
+    "file_path": "pyproject.toml",
+    "dependency_type": "dev"
+  }
+]

@@ -1,0 +1,19 @@
+[project]
+name = "test-project"
+version = "0.1.0"
+description = "Test project for dependency scanning"
+dependencies = [
+    "requests>=2.25.1",
+    "fastapi>=0.65.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0.0",
+    "black>=21.5b2",
+    "mypy>=0.812",
+]
+
+[build-system]
+requires = ["setuptools>=42.0", "wheel"]
+build-backend = "setuptools.build_meta"
