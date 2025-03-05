@@ -10,3 +10,4 @@ wheels/
 .venv
 idea/
 dependencies.csv
+license_data/

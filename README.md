@@ -12,10 +12,22 @@ cd license-crawler
 python license_crawler.py --install
 ```
 
-Or install the dependencies manually:
+Or install the dependencies manually with uv:
 
 ```bash
-pip install gitpython requests tomli
+uv sync
+```
+
+### Environment Variables
+
+The tool uses the following environment variables:
+
+- `GITHUB_TOKEN`: GitHub personal access token for API authentication (required to avoid rate limits and to access private repositories)
+
+You can create a `.env` file in the project root with the following content:
+
+```
+GITHUB_TOKEN=your_token_here
 ```
 
 ## Usage
@@ -64,10 +76,13 @@ Each file contains an array of dependency objects with the following information
     "package_version": "18.2.0",
     "package_with_version": "react@18.2.0",
     "file_last_modified": "2023-05-01T12:34:56",
-    "file_path": "package.json"
+    "file_path": "package.json",
+    "dependency_type": "normal"
   }
 ]
 ```
+
+The `dependency_type` field shows whether the dependency is a normal dependency or a development dependency.
 
 ## Converting to CSV
 
