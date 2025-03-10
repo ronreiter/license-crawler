@@ -11,16 +11,20 @@ import tomli
 import requests
 from git import Repo
 from dotenv import load_dotenv
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 # Load environment variables from .env file
 load_dotenv()
 
 
 class LicenseCrawler:
-    def __init__(self, output_dir=None, org_name=None, user_name=None):
+    def __init__(self, output_dir=None, org_name=None, user_name=None, fetch_licenses=True, max_workers=10):
         self.output_dir = output_dir or os.path.join(os.getcwd(), "license_data")
         self.org_name = org_name
         self.user_name = user_name
+        self.fetch_licenses = fetch_licenses
+        self.max_workers = max_workers
         
         # Create base output directory
         os.makedirs(self.output_dir, exist_ok=True)
@@ -33,13 +37,125 @@ class LicenseCrawler:
         elif self.user_name:
             self.output_dir = os.path.join(self.output_dir, f"user/{self.user_name}")
             os.makedirs(self.output_dir, exist_ok=True)
+        
+        # Cache for license information to avoid redundant API calls
+        self.license_cache = {
+            'python': {},
+            'javascript': {}
+        }
+        
+    def _fetch_licenses_batch(self, dependencies):
+        """Fetch license information for multiple dependencies in parallel."""
+        python_deps = []
+        js_deps = []
+        
+        # Group dependencies by language
+        for i, dep in enumerate(dependencies):
+            # Skip if already has license information
+            if 'license' in dep:
+                continue
+                
+            if dep['language'] == 'python':
+                python_deps.append((i, dep['package_name']))
+            elif dep['language'] == 'javascript':
+                js_deps.append((i, dep['package_name']))
+        
+        # Define worker functions
+        def fetch_python_license(item):
+            idx, pkg_name = item
+            license_info = self.get_python_license(pkg_name)
+            return (idx, license_info)
+            
+        def fetch_js_license(item):
+            idx, pkg_name = item
+            license_info = self.get_javascript_license(pkg_name)
+            return (idx, license_info)
+        
+        # Process in parallel with rate limiting
+        if python_deps or js_deps:
+            print(f"Fetching license information for {len(python_deps)} Python and {len(js_deps)} JavaScript packages...")
+            
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                # Submit Python license jobs
+                python_futures = [executor.submit(fetch_python_license, item) for item in python_deps]
+                
+                # Submit JavaScript license jobs
+                js_futures = [executor.submit(fetch_js_license, item) for item in js_deps]
+                
+                # Process Python results
+                for future in python_futures:
+                    try:
+                        idx, license_info = future.result()
+                        dependencies[idx]['license'] = license_info
+                    except Exception as e:
+                        print(f"Error fetching Python license: {e}")
+                
+                # Process JavaScript results
+                for future in js_futures:
+                    try:
+                        idx, license_info = future.result()
+                        dependencies[idx]['license'] = license_info
+                    except Exception as e:
+                        print(f"Error fetching JavaScript license: {e}")
+            
+            print("License fetching completed.")
     
+    def get_python_license(self, package_name):
+        """Fetch license information for a Python package from PyPI."""
+        if package_name in self.license_cache['python']:
+            return self.license_cache['python'][package_name]
+        
+        try:
+            url = f"https://pypi.org/pypi/{package_name}/json"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                license_info = data.get('info', {}).get('license', 'Unknown')
+                # Sometimes the license field is empty but classifiers contain license info
+                if not license_info or license_info == 'UNKNOWN':
+                    classifiers = data.get('info', {}).get('classifiers', [])
+                    for classifier in classifiers:
+                        if classifier.startswith('License ::'):
+                            license_info = classifier.split(' :: ')[-1]
+                            break
+                
+                self.license_cache['python'][package_name] = license_info
+                return license_info
+        except Exception as e:
+            print(f"Error fetching license for Python package {package_name}: {e}")
+        
+        self.license_cache['python'][package_name] = 'Unknown'
+        return 'Unknown'
+    
+    def get_javascript_license(self, package_name):
+        """Fetch license information for a JavaScript package from npm registry."""
+        if package_name in self.license_cache['javascript']:
+            return self.license_cache['javascript'][package_name]
+        
+        try:
+            url = f"https://registry.npmjs.org/{package_name}"
+            response = requests.get(url, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                license_info = data.get('license', 'Unknown')
+                # Handle license object format
+                if isinstance(license_info, dict):
+                    license_info = license_info.get('type', 'Unknown')
+                
+                self.license_cache['javascript'][package_name] = license_info
+                return license_info
+        except Exception as e:
+            print(f"Error fetching license for JavaScript package {package_name}: {e}")
+        
+        self.license_cache['javascript'][package_name] = 'Unknown'
+        return 'Unknown'
+
     def process_python_dependencies(self, python_deps, dependencies, path, temp_dir, last_modified, dep_type):
         """Process Python dependencies and add them to the dependencies list."""
         if isinstance(python_deps, dict):
             for dep_name, dep_version in python_deps.items():
                 if isinstance(dep_version, str):
-                    dependencies.append({
+                    dep_info = {
                         'language': 'python',
                         'package_name': dep_name,
                         'package_version': dep_version,
@@ -47,7 +163,13 @@ class LicenseCrawler:
                         'file_last_modified': last_modified,
                         'file_path': str(path.relative_to(temp_dir)),
                         'dependency_type': dep_type
-                    })
+                    }
+                    
+                    # Fetch license information if enabled
+                    if self.fetch_licenses:
+                        dep_info['license'] = self.get_python_license(dep_name)
+                    
+                    dependencies.append(dep_info)
         elif isinstance(python_deps, list):
             # Handle list-style dependencies
             for dep in python_deps:
@@ -71,7 +193,7 @@ class LicenseCrawler:
                                 dep_name = dep.strip()
                                 dep_version = ""
                     
-                    dependencies.append({
+                    dep_info = {
                         'language': 'python',
                         'package_name': dep_name,
                         'package_version': dep_version,
@@ -79,7 +201,13 @@ class LicenseCrawler:
                         'file_last_modified': last_modified,
                         'file_path': str(path.relative_to(temp_dir)),
                         'dependency_type': dep_type
-                    })
+                    }
+                    
+                    # Fetch license information if enabled
+                    if self.fetch_licenses:
+                        dep_info['license'] = self.get_python_license(dep_name)
+                    
+                    dependencies.append(dep_info)
     
     def scan_repository(self, repo_url):
         """Scan a GitHub repository for dependency files."""
@@ -157,7 +285,7 @@ class LicenseCrawler:
                         for dep_type in ['dependencies', 'devDependencies']:
                             if dep_type in data:
                                 for dep_name, dep_version in data[dep_type].items():
-                                    dependencies.append({
+                                    dep_info = {
                                         'language': 'javascript',
                                         'package_name': dep_name,
                                         'package_version': dep_version,
@@ -165,9 +293,19 @@ class LicenseCrawler:
                                         'file_last_modified': last_modified,
                                         'file_path': str(path.relative_to(temp_dir)),
                                         'dependency_type': 'dev' if dep_type == 'devDependencies' else 'normal'
-                                    })
+                                    }
+                                    
+                                    # Fetch license information if enabled
+                                    if self.fetch_licenses:
+                                        dep_info['license'] = self.get_javascript_license(dep_name)
+                                    
+                                    dependencies.append(dep_info)
                     except Exception as e:
                         print(f"Error processing {path}: {e}")
+                
+                # Fetch licenses in batch if enabled
+                if self.fetch_licenses and dependencies:
+                    self._fetch_licenses_batch(dependencies)
                 
                 # Save results
                 if dependencies:
@@ -317,6 +455,8 @@ def main():
     parser.add_argument("--install", action="store_true", help="Install as a command-line application")
     parser.add_argument("--output-dir", help="Output directory for JSON files")
     parser.add_argument("--skip-token-check", action="store_true", help="Skip the GitHub token check")
+    parser.add_argument("--skip-licenses", action="store_true", help="Skip fetching license information")
+    parser.add_argument("--max-workers", type=int, default=10, help="Maximum number of concurrent workers for license fetching")
     
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     
@@ -344,14 +484,19 @@ def main():
     if not args.skip_token_check and args.command in ["user", "org"]:
         check_github_token()
     
+    # Determine whether to fetch licenses
+    fetch_licenses = not args.skip_licenses
+    
     if args.command == "repo":
-        crawler = LicenseCrawler(output_dir=args.output_dir)
+        crawler = LicenseCrawler(output_dir=args.output_dir, fetch_licenses=fetch_licenses, max_workers=args.max_workers)
         crawler.scan_repository(args.url)
     elif args.command == "user":
-        crawler = LicenseCrawler(output_dir=args.output_dir, user_name=args.username)
+        crawler = LicenseCrawler(output_dir=args.output_dir, user_name=args.username, 
+                               fetch_licenses=fetch_licenses, max_workers=args.max_workers)
         crawler.scan_github_user(args.username, max_repos=args.max_repos)
     elif args.command == "org":
-        crawler = LicenseCrawler(output_dir=args.output_dir, org_name=args.org_name)
+        crawler = LicenseCrawler(output_dir=args.output_dir, org_name=args.org_name, 
+                               fetch_licenses=fetch_licenses, max_workers=args.max_workers)
         crawler.scan_github_org(args.org_name, max_repos=args.max_repos)
     else:
         parser.print_help()
